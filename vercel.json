@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://songapi-c2c8.onrender.com/lulu/$1"
-    }
-  ]
-}
