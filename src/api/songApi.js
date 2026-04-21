@@ -1,38 +1,30 @@
-// src/api/songApi.js
-
 const TARGET_URL = 'https://songapi-c2c8.onrender.com/lulu/songs';
 
 export const fetchSongs = async () => {
   try {
-    console.log('📥 Attempting to wake up Render and fetch songs...');
-    
-    // We use a cache-buster (?t=...) to make sure we get fresh data
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(TARGET_URL + '?t=' + Date.now())}`;
+    console.log('📥 Requesting songs through fallback proxy...');
+
+    // We use corsproxy.io - it is simple and doesn't require special headers
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(TARGET_URL)}`;
 
     const response = await fetch(proxyUrl);
 
     if (!response.ok) {
-      throw new Error(`Proxy Error: ${response.status}`);
+      throw new Error(`Server responded with ${response.status}`);
     }
 
     const data = await response.json();
-
-    if (!data.contents) {
-      throw new Error("No content received from proxy");
-    }
-
-    // AllOrigins returns the data as a string, so we parse it
-    const songsArray = JSON.parse(data.contents);
-
-    console.log('✅ Data received successfully!');
-    return Array.isArray(songsArray) ? songsArray : [];
+    
+    console.log('✅ Data received successfully');
+    // Most proxies return the data directly; if it's an array, return it
+    return Array.isArray(data) ? data : [];
 
   } catch (error) {
-    console.error('❌ Fetch error:', error.message);
+    console.error('❌ Fetch error:', error);
     
-    // If it's a timeout, it's usually just Render waking up.
-    // We tell the user it's loading/waking up instead of just "Error"
-    throw new Error('Server is waking up. Please refresh in 30 seconds.');
+    // If this still fails, the Render backend is likely totally asleep 
+    // or has blocked the proxy IP.
+    throw new Error('API is currently unreachable. Please try again in a minute.');
   }
 };
 
@@ -44,8 +36,7 @@ export const searchSongs = async (query) => {
     const lowerQuery = query.toLowerCase();
     return allSongs.filter((song) =>
       song.title?.toLowerCase().includes(lowerQuery) ||
-      song.artist?.toLowerCase().includes(lowerQuery) ||
-      song.album?.toLowerCase().includes(lowerQuery)
+      song.artist?.toLowerCase().includes(lowerQuery)
     );
   } catch (error) {
     console.error('❌ Search error:', error);
