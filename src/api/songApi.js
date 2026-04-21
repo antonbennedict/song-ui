@@ -2,40 +2,52 @@ const TARGET_URL = 'https://songapi-c2c8.onrender.com/lulu/songs';
 
 export const fetchSongs = async () => {
   try {
-    console.log('📥 Attempting stealth fetch...');
+    console.log('📥 Attempting fetch via AllOrigins bridge...');
 
-    // Using a different proxy bridge (shcors.site or similar)
-    // If this fails, we try a direct "no-cors" mode as a last resort
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(TARGET_URL)}`;
+    // We wrap the URL in AllOrigins. 
+    // We add a random 'cache-buster' parameter (?v=...) to try and bypass 403 filters.
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(TARGET_URL + '?v=' + Date.now())}`;
 
-    const response = await fetch(proxyUrl, {
-      method: 'GET'
-    });
-
-    if (response.status === 403) {
-      throw new Error("The Backend is still blocking the request. It requires direct CORS clearance.");
-    }
+    const response = await fetch(proxyUrl);
 
     if (!response.ok) {
-      throw new Error(`Proxy status: ${response.status}`);
+      throw new Error(`Proxy Error: ${response.status}`);
     }
 
     const data = await response.json();
-    return Array.isArray(data) ? data : [];
+
+    // AllOrigins returns data inside a 'contents' string.
+    // We must parse that string into a real JavaScript object/array.
+    if (!data.contents) {
+      throw new Error("Received empty response from proxy.");
+    }
+
+    const songsArray = JSON.parse(data.contents);
+
+    console.log('✅ Data successfully retrieved:', songsArray);
+    return Array.isArray(songsArray) ? songsArray : [];
 
   } catch (error) {
     console.error('❌ Fetch error:', error);
     
-    // LAST RESORT: If the proxy fails, we tell the user why
-    throw new Error('CORS Policy Block: The backend server refuses to talk to external websites.');
+    // Friendly error for the UI
+    throw new Error('The API is blocking the connection. Please try again in a few moments.');
   }
 };
 
 export const searchSongs = async (query) => {
-  const allSongs = await fetchSongs();
-  if (!query) return allSongs;
-  const q = query.toLowerCase();
-  return allSongs.filter(s => 
-    s.title?.toLowerCase().includes(q) || s.artist?.toLowerCase().includes(q)
-  );
+  try {
+    const allSongs = await fetchSongs();
+    if (!query) return allSongs;
+
+    const lowerQuery = query.toLowerCase();
+    return allSongs.filter((song) =>
+      song.title?.toLowerCase().includes(lowerQuery) ||
+      song.artist?.toLowerCase().includes(lowerQuery) ||
+      song.album?.toLowerCase().includes(lowerQuery)
+    );
+  } catch (error) {
+    console.error('❌ Search error:', error);
+    throw error;
+  }
 };
